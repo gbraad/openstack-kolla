@@ -1,0 +1,37 @@
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+MAINTAINER {{ maintainer }}
+
+{% if install_type == 'binary' %}
+    {% if base_distro in ['fedora', 'centos', 'oraclelinux', 'rhel'] %}
+
+RUN yum -y install \
+        openstack-openstackclient \
+    && yum clean all \
+    && usermod -a -G kolla {{ user }}
+
+    {% elif base_distro in ['ubuntu'] %}
+
+RUN apt-get -y install --no-install-recommends \
+        openstack-openstackclient \
+    && apt-get clean \
+    && usermod -a -G kolla {{ user }}
+
+    {% endif %}
+{% elif install_type == 'source' %}
+
+ADD openstackclient-archive /openstackclient-source
+RUN ln -s openstackclient-source/* openstackclient \
+    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements.txt /openstackclient
+
+{% endif %}
+
+RUN mkdir /root/.stack
+VOLUME /root/.stack
+
+# Add stack helper util
+curl -sSL https://raw.githubusercontent.com/gbraad/openstack-tools/master/stack -o /sbin/stack
+chmod 0755 /sbin/stack
+
+{{ include_footer }}
+
+USER {{ user }}
